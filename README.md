@@ -9,7 +9,7 @@ grow your sunflower, and eventually face down the sun itself.
 枯れた花を避けてひまわりを収穫し、進化のたびに選択で自分だけのビルドを作って
 太陽(ボス)と対峙する、瞬間判断型ミニゲームです。
 
-**🔗 데모 (Demo / デモ):** _TODO — GitHub Pages 배포 후 URL을 여기에 채워주세요._
+**🔗 데모 (Demo / デモ):** https://sooni95.github.io/sunflower-quest/
 
 **📸 스크린샷 (Screenshot / スクリーンショット):**
 
