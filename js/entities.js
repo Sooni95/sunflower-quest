@@ -1,4 +1,13 @@
-import { FIELD_EDGE_MARGIN_RATIO, MIN_SPAWN_DISTANCE_RATIO } from './config.js';
+import {
+  FIELD_EDGE_MARGIN_RATIO,
+  MIN_SPAWN_DISTANCE_RATIO,
+  MAX_SPAWN_POSITION_ATTEMPTS,
+  FAKE_PATTERN_REVEAL_WITHER_DELAY,
+  FAKE_PATTERN_REVEAL_FLOWER_DELAY,
+  FAKE_PATTERN_REVEAL_WITHER_MIN_STAGE_ID,
+  FAKE_PATTERN_REVEAL_FLOWER_MIN_STAGE_ID,
+  FAKE_PATTERN_CHANCE,
+} from './config.js';
 
 let nextId = 1;
 
@@ -25,7 +34,7 @@ export function pickPosition(fieldWidth, fieldHeight, lastPos) {
       y: randomInRange(marginY, fieldHeight - marginY),
     };
     attempts += 1;
-  } while (lastPos && distance(pos, lastPos) < minDistance && attempts < 20);
+  } while (lastPos && distance(pos, lastPos) < minDistance && attempts < MAX_SPAWN_POSITION_ATTEMPTS);
 
   return pos;
 }
@@ -34,18 +43,45 @@ export function pickType(witheredRatio) {
   return Math.random() < witheredRatio ? 'withered' : 'sunflower';
 }
 
+// 페이크 패턴: 변신형(해바라기→시든 꽃)은 4단계부터, 위장형(시든 꽃→해바라기)은 5단계부터 등장한다.
+function rollFakePattern(baseType, stageId) {
+  if (baseType === 'sunflower' && stageId >= FAKE_PATTERN_REVEAL_WITHER_MIN_STAGE_ID) {
+    if (Math.random() < FAKE_PATTERN_CHANCE) {
+      return { flipAt: performance.now() + FAKE_PATTERN_REVEAL_WITHER_DELAY };
+    }
+  } else if (baseType === 'withered' && stageId >= FAKE_PATTERN_REVEAL_FLOWER_MIN_STAGE_ID) {
+    if (Math.random() < FAKE_PATTERN_CHANCE) {
+      return { flipAt: performance.now() + FAKE_PATTERN_REVEAL_FLOWER_DELAY };
+    }
+  }
+  return { flipAt: null };
+}
+
 export function createEntity(fieldWidth, fieldHeight, lastPos, stage) {
   const position = pickPosition(fieldWidth, fieldHeight, lastPos);
+  const baseType = pickType(stage.witheredRatio);
+  const { flipAt } = rollFakePattern(baseType, stage.id);
+
   return {
     id: nextId++,
-    type: pickType(stage.witheredRatio),
+    type: baseType,
     x: position.x,
     y: position.y,
     spawnedAt: performance.now(),
     lifetime: stage.lifetime,
+    flipAt,
   };
 }
 
 export function isExpired(entity, now) {
   return now - entity.spawnedAt >= entity.lifetime;
+}
+
+export function isFlipReady(entity, now) {
+  return entity.flipAt !== null && now >= entity.flipAt;
+}
+
+export function applyFlip(entity) {
+  entity.type = entity.type === 'sunflower' ? 'withered' : 'sunflower';
+  entity.flipAt = null;
 }
