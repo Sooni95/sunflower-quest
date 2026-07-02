@@ -184,7 +184,10 @@ export const DANGER_PASSIVE_DECAY_INTERVAL_MS = 1000;
 export const MAX_DANGER = 100;                  // 이 값에 도달하면 게임오버
 export const DANGER_WARNING_THRESHOLD = 50;      // 최초로 이 값을 넘으면 경고 토스트 1회 노출
 export const DANGER_SPEED_UP_FACTOR = 0.5;      // 위험도 100%일 때 스폰 간격을 최대 몇 % 단축할지
-export const MIN_EFFECTIVE_SPAWN_INTERVAL = 150; // 위험도로 인한 가속의 하한선 (ms)
+export const MIN_EFFECTIVE_SPAWN_INTERVAL = 150; // 스폰 간격 가속(위험도+진행도 합산)의 하한선 (ms)
+
+// 단계 내 진행 가속: 다음 진화에 가까워질수록 스폰 간격이 점점 짧아진다 (진화 직전 최대 40% 단축)
+export const STAGE_PROGRESS_SPEED_UP_FACTOR = 0.4;
 export const MAX_DANGER_DARKEN_OPACITY = 0.75;   // 위험도 100%일 때 암전 오버레이 최대 불투명도
 
 // 파워업 (⭐ 판정 범위 확대 아이템)

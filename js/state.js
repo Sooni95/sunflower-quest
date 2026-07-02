@@ -25,6 +25,7 @@ import {
   MAX_DANGER,
   DANGER_SPEED_UP_FACTOR,
   MIN_EFFECTIVE_SPAWN_INTERVAL,
+  STAGE_PROGRESS_SPEED_UP_FACTOR,
   POWERUP_DANGER_RELIEF,
   SAVE_KEY,
 } from './config.js';
@@ -133,9 +134,20 @@ export function applyPowerupRelief() {
 }
 
 // 위험도가 높을수록 스폰 간격이 짧아진다 (최대 DANGER_SPEED_UP_FACTOR 만큼, 하한선 있음).
+// 현재 단계에서 다음 진화까지의 진행도 0~1. 최종 단계(pointsToNext=Infinity)는 항상 0.
+export function getStageProgress() {
+  const target = currentStage().pointsToNext;
+  if (!isFinite(target)) return 0;
+  const start = state.stageIndex > 0 ? STAGES[state.stageIndex - 1].pointsToNext : 0;
+  const progress = (state.points - start) / (target - start);
+  return Math.min(Math.max(progress, 0), 1);
+}
+
 export function getEffectiveSpawnInterval() {
   const base = currentStage().spawnInterval;
-  const reduced = base * (1 - DANGER_SPEED_UP_FACTOR * (state.danger / MAX_DANGER));
+  const dangerCut = DANGER_SPEED_UP_FACTOR * (state.danger / MAX_DANGER);
+  const progressCut = STAGE_PROGRESS_SPEED_UP_FACTOR * getStageProgress();
+  const reduced = base * (1 - dangerCut) * (1 - progressCut);
   return Math.max(reduced, MIN_EFFECTIVE_SPAWN_INTERVAL);
 }
 
