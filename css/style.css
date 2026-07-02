@@ -61,11 +61,28 @@ html, body {
 .entity {
   position: absolute;
   transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 2.6rem;
   line-height: 1;
   cursor: pointer;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2));
   animation: pop-in 0.15s ease-out;
+}
+
+/* 파워업 버프 중에는 탭 판정 영역이 넓어진다 (padding으로 클릭 가능 범위만 확장, 시각적 크기는 유지) */
+#field.field-buffed .entity {
+  padding: var(--powerup-hit-padding, 0px);
+}
+
+.entity.powerup {
+  animation: pop-in 0.15s ease-out, powerup-pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes powerup-pulse {
+  from { filter: drop-shadow(0 0 4px rgba(255, 235, 59, 0.6)); }
+  to { filter: drop-shadow(0 0 14px rgba(255, 235, 59, 1)); }
 }
 
 @keyframes pop-in {
@@ -115,6 +132,14 @@ html, body {
 @keyframes float-up {
   from { transform: translate(-50%, -50%) translateY(0); opacity: 1; }
   to { transform: translate(-50%, -50%) translateY(-40px); opacity: 0; }
+}
+
+#danger-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 5, 15, 0);
+  pointer-events: none;
+  transition: background 0.4s ease-out;
 }
 
 #flash-overlay {

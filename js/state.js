@@ -19,6 +19,13 @@ import {
   WARRIOR_BOSS_DAMAGE_BONUS,
   WARRIOR_BOSS_HEAL_REDUCTION,
   MONOLOGUE_THRESHOLDS,
+  DANGER_PER_MISS,
+  DANGER_DECAY_PER_HARVEST,
+  DANGER_PASSIVE_DECAY_PER_TICK,
+  MAX_DANGER,
+  DANGER_SPEED_UP_FACTOR,
+  MIN_EFFECTIVE_SPAWN_INTERVAL,
+  POWERUP_DANGER_RELIEF,
   SAVE_KEY,
 } from './config.js';
 
@@ -29,6 +36,7 @@ const initialState = {
   missCount: 0, // 시든 꽃 탭 횟수 (엔딩 통계용, §7-6)
   harvestCount: 0,
   playTimeMs: 0,
+  danger: 0, // 위험도 0~100. MAX_DANGER 도달 시 게임오버 (필드 단계 전용)
   shownMonologues: [], // 이미 노출한 혼잣말 임계값 목록
   upgrades: {
     harvestBonus: false,
@@ -89,6 +97,7 @@ export function addHarvestPoints() {
   }
   state.combo.maxStreak = Math.max(state.combo.maxStreak, state.combo.streak);
   state.combo.maxMultiplier = Math.max(state.combo.maxMultiplier, state.combo.multiplier);
+  state.danger = Math.max(state.danger - DANGER_DECAY_PER_HARVEST, 0);
 
   saveState();
   return gained;
@@ -101,9 +110,33 @@ export function applyWitherPenalty() {
   state.combo.streak = 0;
   state.combo.multiplier = 1.0;
   state.missCount += 1;
+  state.danger = Math.min(state.danger + DANGER_PER_MISS, MAX_DANGER);
 
   saveState();
   return loss;
+}
+
+export function isGameOver() {
+  return state.danger >= MAX_DANGER;
+}
+
+export function decayDangerPassive() {
+  state.danger = Math.max(state.danger - DANGER_PASSIVE_DECAY_PER_TICK, 0);
+  saveState();
+  return state.danger;
+}
+
+export function applyPowerupRelief() {
+  state.danger = Math.max(state.danger - POWERUP_DANGER_RELIEF, 0);
+  saveState();
+  return state.danger;
+}
+
+// 위험도가 높을수록 스폰 간격이 짧아진다 (최대 DANGER_SPEED_UP_FACTOR 만큼, 하한선 있음).
+export function getEffectiveSpawnInterval() {
+  const base = currentStage().spawnInterval;
+  const reduced = base * (1 - DANGER_SPEED_UP_FACTOR * (state.danger / MAX_DANGER));
+  return Math.max(reduced, MIN_EFFECTIVE_SPAWN_INTERVAL);
 }
 
 export function canEvolve() {
@@ -191,6 +224,12 @@ export function setEndingType(type) {
 
 export function isSunBranch() {
   return state.branch === BRANCHES.SUN;
+}
+
+// 보스전/대화 씬 진입 시 위험도를 초기화한다 (위험도는 필드 단계 전용 메커니즘).
+export function resetDanger() {
+  state.danger = 0;
+  saveState();
 }
 
 // --- 플레이 시간 / 저장 / 초기화 ---

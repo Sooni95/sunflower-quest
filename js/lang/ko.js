@@ -81,4 +81,8 @@ export const ko = {
 
   'debug.cheat.button': '+1000 (치트)',
   'debug.simulate.button': '시뮬레이션 실행',
+
+  'danger.warning': '위험해... 손이 떨리기 시작했어.',
+  'ending.gameover.title': '게임오버',
+  'ending.gameover.toast': '...결국 여기까지였네.',
 };

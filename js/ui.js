@@ -9,11 +9,18 @@ import {
   BOSS_INTRO_TOAST_DURATION,
 } from './config.js';
 
+const ENTITY_EMOJI = {
+  sunflower: '🌻',
+  withered: '🥀',
+  powerup: '⭐',
+};
+
 let pointsEl;
 let stageEl;
 let comboEl;
 let fieldEl;
 let flashEl;
+let dangerEl;
 let gameRootEl;
 
 export function initUI() {
@@ -22,6 +29,7 @@ export function initUI() {
   comboEl = document.getElementById('hud-combo');
   fieldEl = document.getElementById('field');
   flashEl = document.getElementById('flash-overlay');
+  dangerEl = document.getElementById('danger-overlay');
   gameRootEl = document.getElementById('game-root');
 }
 
@@ -48,7 +56,7 @@ export function renderEntity(entity) {
   el.className = `entity ${entity.type}`;
   el.style.left = `${entity.x}px`;
   el.style.top = `${entity.y}px`;
-  el.textContent = entity.type === 'sunflower' ? '🌻' : '🥀';
+  el.textContent = ENTITY_EMOJI[entity.type];
   el.dataset.id = entity.id;
   fieldEl.appendChild(el);
   return el;
@@ -61,7 +69,27 @@ export function removeEntityEl(el) {
 // 페이크 패턴이 뒤집힐 때 표시를 갱신한다.
 export function updateEntityVisual(el, type) {
   el.className = `entity ${type} flip-pop`;
-  el.textContent = type === 'sunflower' ? '🌻' : '🥀';
+  el.textContent = ENTITY_EMOJI[type];
+}
+
+// 위험도(0~100)에 비례해 필드를 어둡게 한다.
+export function updateDangerOverlay(dangerPercent, maxDarkenOpacity) {
+  const opacity = (dangerPercent / 100) * maxDarkenOpacity;
+  dangerEl.style.background = `rgba(10, 5, 15, ${opacity})`;
+}
+
+// 파워업 버프 on/off. hitPaddingPx는 버프 중 탭 판정 영역 확장폭.
+export function setFieldBuffed(active, hitPaddingPx) {
+  fieldEl.classList.toggle('field-buffed', active);
+  fieldEl.style.setProperty('--powerup-hit-padding', active ? `${hitPaddingPx}px` : '0px');
+}
+
+export function showDangerWarning(text) {
+  const el = document.createElement('div');
+  el.className = 'boss-intro-toast';
+  el.textContent = text;
+  gameRootEl.appendChild(el);
+  setTimeout(() => el.remove(), BOSS_INTRO_TOAST_DURATION);
 }
 
 export function playHarvestFeedback(el) {

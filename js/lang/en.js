@@ -81,4 +81,8 @@ export const en = {
 
   'debug.cheat.button': '+1000 (cheat)',
   'debug.simulate.button': 'Run Simulation',
+
+  'danger.warning': 'Careful... your hands are starting to shake.',
+  'ending.gameover.title': 'Game Over',
+  'ending.gameover.toast': '...well, that\'s as far as we got.',
 };

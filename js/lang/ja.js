@@ -81,4 +81,8 @@ export const ja = {
 
   'debug.cheat.button': '+1000 (チート)', // +1000 (치트)
   'debug.simulate.button': 'シミュレーション実行', // 시뮬레이션 실행
+
+  'danger.warning': '危ない...手が震えてきたぞ。', // 위험해... 손이 떨리기 시작했어.
+  'ending.gameover.title': 'ゲームオーバー', // 게임오버
+  'ending.gameover.toast': '...ここまでだったか。', // ...결국 여기까지였네.
 };

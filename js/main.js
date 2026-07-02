@@ -25,6 +25,12 @@ import {
   HARVEST_REMOVE_DELAY,
   BOSS_DEFEAT_TO_ENDING_DELAY,
   DEBUG_POINTS_INCREMENT,
+  DANGER_WARNING_THRESHOLD,
+  MAX_DANGER_DARKEN_OPACITY,
+  DANGER_PASSIVE_DECAY_INTERVAL_MS,
+  POWERUP_SPAWN_CHANCE,
+  POWERUP_BUFF_DURATION,
+  POWERUP_HIT_PADDING,
 } from './config.js';
 import {
   state,
@@ -46,8 +52,13 @@ import {
   addPlayTime,
   resetGame,
   getNewMonologueThreshold,
+  isGameOver,
+  decayDangerPassive,
+  applyPowerupRelief,
+  getEffectiveSpawnInterval,
+  resetDanger,
 } from './state.js';
-import { createEntity, isExpired, isFlipReady, applyFlip } from './entities.js';
+import { createEntity, createPowerupEntity, isExpired, isFlipReady, applyFlip } from './entities.js';
 import { tryEvolve, applyChoice } from './evolution.js';
 import { onTap } from './input.js';
 import {
@@ -77,6 +88,9 @@ import {
   initLangToggle,
   refreshVisibleLabels,
   updateEntityVisual,
+  updateDangerOverlay,
+  setFieldBuffed,
+  showDangerWarning,
 } from './ui.js';
 
 const liveEntities = new Map(); // id -> { entity, el }
@@ -85,10 +99,23 @@ let spawnTimer = null;
 let autoHarvestTimer = null;
 let evolutionInProgress = false;
 let phase = 'field'; // 'field' | 'boss' | 'dialogue' | 'ended'
+let powerupBuffTimer = null;
+let dangerWarningShown = false;
 
 function refreshHUD() {
   updateHUD(state.points, currentStage().nameKey);
   updateCombo(state.combo.streak, state.combo.multiplier);
+  updateDangerOverlay(state.danger, MAX_DANGER_DARKEN_OPACITY);
+  maybeWarnDanger();
+}
+
+function maybeWarnDanger() {
+  if (state.danger >= DANGER_WARNING_THRESHOLD && !dangerWarningShown) {
+    dangerWarningShown = true;
+    showDangerWarning(t('danger.warning'));
+  } else if (state.danger < DANGER_WARNING_THRESHOLD) {
+    dangerWarningShown = false;
+  }
 }
 
 function restartAutoHarvest() {
@@ -164,13 +191,37 @@ function handleFieldTap(id) {
     if (monologueThreshold) showMonologue(t(`monologue.${monologueThreshold}`));
 
     handleEvolutionCheck();
+  } else if (entity.type === 'powerup') {
+    playHarvestFeedback(el);
+    showFloatingText(entity.x, entity.y, '★', 'gain');
+    removeEntityEl(el);
+    applyPowerupRelief();
+    activatePowerupBuff();
+    refreshHUD();
   } else {
     const lost = applyWitherPenalty();
     showFloatingText(entity.x, entity.y, `-${lost}`, 'loss');
     triggerWitherFeedback();
     removeEntityEl(el);
     refreshHUD();
+
+    if (isGameOver()) triggerGameOver();
   }
+}
+
+function activatePowerupBuff() {
+  setFieldBuffed(true, POWERUP_HIT_PADDING);
+  clearTimeout(powerupBuffTimer);
+  powerupBuffTimer = setTimeout(() => setFieldBuffed(false, 0), POWERUP_BUFF_DURATION);
+}
+
+function triggerGameOver() {
+  phase = 'ended';
+  clearTimeout(spawnTimer);
+  clearLiveEntities();
+  showDangerWarning(t('ending.gameover.toast'));
+  setEndingType('gameover');
+  setTimeout(showEnding, BOSS_DEFEAT_TO_ENDING_DELAY);
 }
 
 function handleBossTap(id) {
@@ -198,12 +249,26 @@ function handleBossTap(id) {
   }
 }
 
+function hasLivePowerup() {
+  return [...liveEntities.values()].some((r) => r.entity.type === 'powerup');
+}
+
 function trySpawn() {
   if (phase === 'dialogue' || phase === 'ended') return;
   if (evolutionInProgress) return;
   if (liveEntities.size >= getEffectiveMaxConcurrent()) return;
 
   const { width, height } = getFieldSize();
+
+  if (phase === 'field' && !hasLivePowerup() && Math.random() < POWERUP_SPAWN_CHANCE) {
+    const powerup = createPowerupEntity(width, height, lastSpawnPos);
+    lastSpawnPos = { x: powerup.x, y: powerup.y };
+    const el = renderEntity(powerup);
+    onTap(el, () => handleEntityTap(powerup.id));
+    liveEntities.set(powerup.id, { entity: powerup, el });
+    return;
+  }
+
   const entity = createEntity(width, height, lastSpawnPos, currentStage());
   lastSpawnPos = { x: entity.x, y: entity.y };
 
@@ -217,7 +282,7 @@ function scheduleSpawn() {
   spawnTimer = setTimeout(() => {
     trySpawn();
     scheduleSpawn();
-  }, currentStage().spawnInterval);
+  }, getEffectiveSpawnInterval());
 }
 
 function cleanupExpired() {
@@ -238,6 +303,10 @@ function cleanupExpired() {
 function enterBossOrDialogue() {
   clearTimeout(spawnTimer);
   clearLiveEntities();
+  resetDanger();
+  clearTimeout(powerupBuffTimer);
+  setFieldBuffed(false, 0);
+  updateDangerOverlay(0, MAX_DANGER_DARKEN_OPACITY);
 
   if (isSunBranch()) {
     phase = 'dialogue';
@@ -275,9 +344,15 @@ function formatPlayTime(ms) {
   return `${mm}:${ss}`;
 }
 
+function endingTitleKey() {
+  if (state.endingType === 'true') return 'ending.true.title';
+  if (state.endingType === 'gameover') return 'ending.gameover.title';
+  return 'ending.normal.title';
+}
+
 function showEnding() {
   const branchLabelKey = state.branch ? `branch.${state.branch}.short` : 'branch.none.short';
-  const titleKey = state.endingType === 'true' ? 'ending.true.title' : 'ending.normal.title';
+  const titleKey = endingTitleKey();
 
   showEndingScreen(titleKey, {
     playTime: formatPlayTime(state.playTimeMs),
@@ -407,6 +482,14 @@ function startPlayTimeTicker() {
   }, PLAYTIME_SAVE_INTERVAL_MS);
 }
 
+function startDangerDecayTicker() {
+  setInterval(() => {
+    if (phase !== 'field') return;
+    decayDangerPassive();
+    refreshHUD();
+  }, DANGER_PASSIVE_DECAY_INTERVAL_MS);
+}
+
 function currentFinalStageLabelKey() {
   return isFinalStage() ? (isSunBranch() ? 'boss.enter.button.sun' : 'boss.enter.button') : null;
 }
@@ -431,6 +514,7 @@ function init() {
   requestAnimationFrame(cleanupExpired);
   initDebugCheat();
   startPlayTimeTicker();
+  startDangerDecayTicker();
   maybeShowFinalStageButton();
   initLangToggle(cycleLang);
 

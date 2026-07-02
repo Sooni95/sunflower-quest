@@ -7,6 +7,7 @@ import {
   FAKE_PATTERN_REVEAL_WITHER_MIN_STAGE_ID,
   FAKE_PATTERN_REVEAL_FLOWER_MIN_STAGE_ID,
   FAKE_PATTERN_CHANCE,
+  POWERUP_LIFETIME,
 } from './config.js';
 
 let nextId = 1;
@@ -70,6 +71,19 @@ export function createEntity(fieldWidth, fieldHeight, lastPos, stage) {
     spawnedAt: performance.now(),
     lifetime: stage.lifetime,
     flipAt,
+  };
+}
+
+export function createPowerupEntity(fieldWidth, fieldHeight, lastPos) {
+  const position = pickPosition(fieldWidth, fieldHeight, lastPos);
+  return {
+    id: nextId++,
+    type: 'powerup',
+    x: position.x,
+    y: position.y,
+    spawnedAt: performance.now(),
+    lifetime: POWERUP_LIFETIME,
+    flipAt: null,
   };
 }
 

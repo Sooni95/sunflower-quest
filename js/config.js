@@ -175,3 +175,21 @@ export const SIM_TAPS_PER_SECOND = 2.5; // 가정: 숙련 플레이어의 평균
 export const SIM_MISS_RATE = 0.05; // 가정: 실수로 시든 꽃을 탭할 확률
 export const SIM_TARGET_TOTAL_MINUTES = 95; // §7-3 목표 곡선 (1→6단계 + 보스전)
 export const SIM_TARGET_TOLERANCE_MINUTES = 15;
+
+// 위험도 / 게임오버 (필드 단계 전용, 보스전·대화 씬에는 적용 안 함)
+export const DANGER_PER_MISS = 20;              // 시든 꽃 탭 1회당 위험도 상승분
+export const DANGER_DECAY_PER_HARVEST = 4;      // 정상 수확 1회당 위험도 감소분
+export const DANGER_PASSIVE_DECAY_PER_TICK = 1; // 가만히 있어도 주기마다 자연 감소
+export const DANGER_PASSIVE_DECAY_INTERVAL_MS = 1000;
+export const MAX_DANGER = 100;                  // 이 값에 도달하면 게임오버
+export const DANGER_WARNING_THRESHOLD = 50;      // 최초로 이 값을 넘으면 경고 토스트 1회 노출
+export const DANGER_SPEED_UP_FACTOR = 0.5;      // 위험도 100%일 때 스폰 간격을 최대 몇 % 단축할지
+export const MIN_EFFECTIVE_SPAWN_INTERVAL = 150; // 위험도로 인한 가속의 하한선 (ms)
+export const MAX_DANGER_DARKEN_OPACITY = 0.75;   // 위험도 100%일 때 암전 오버레이 최대 불투명도
+
+// 파워업 (⭐ 판정 범위 확대 아이템)
+export const POWERUP_SPAWN_CHANCE = 0.03;    // 스폰 시도마다 파워업으로 대체될 확률 (필드에 파워업이 없을 때만)
+export const POWERUP_LIFETIME = 1200;        // ms, 놓치면 사라짐
+export const POWERUP_BUFF_DURATION = 5000;   // ms, 판정 범위 확대 지속시간
+export const POWERUP_DANGER_RELIEF = 15;     // 파워업 습득 시 위험도 즉시 감소분
+export const POWERUP_HIT_PADDING = 18;       // px, 버프 중 엔티티 판정 영역에 추가되는 여백
