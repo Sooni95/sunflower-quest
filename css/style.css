@@ -61,8 +61,8 @@ html, body {
 
 .entity {
   position: absolute;
-  /* --gust-dx: 돌풍 이벤트(§7-2d) 중 좌우 흔들림 오프셋. 평소엔 0px. */
-  transform: translate(calc(-50% + var(--gust-dx, 0px)), -50%);
+  /* --motion-dx: 돌풍(사인파)·벌(직선 이동) 등 좌우 이동 오프셋. 평소엔 0px. */
+  transform: translate(calc(-50% + var(--motion-dx, 0px)), -50%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -102,6 +102,26 @@ html, body {
     filter: drop-shadow(0 0 14px rgba(255, 193, 7, 1)) drop-shadow(0 0 30px rgba(255, 152, 0, 0.9)) brightness(1.5);
     transform: translate(-50%, -50%) scale(1.12);
   }
+}
+
+/* 벌: 가로지르는 동안 살짝 좌우로 진동하는 날갯짓 느낌 */
+.entity.bee {
+  animation: pop-in 0.1s ease-out, bee-buzz 0.15s ease-in-out infinite alternate;
+}
+
+@keyframes bee-buzz {
+  from { transform: translate(calc(-50% + var(--motion-dx, 0px)), -50%) rotate(-6deg); }
+  to { transform: translate(calc(-50% + var(--motion-dx, 0px)), -50%) rotate(6deg); }
+}
+
+/* 씨앗 주머니: 곧 터질 듯한 들썩임 */
+.entity.seedbag {
+  animation: pop-in 0.15s ease-out, seedbag-wiggle 0.4s ease-in-out infinite;
+}
+
+@keyframes seedbag-wiggle {
+  0%, 100% { transform: translate(calc(-50% + var(--motion-dx, 0px)), -50%) rotate(0deg); }
+  50% { transform: translate(calc(-50% + var(--motion-dx, 0px)), -50%) rotate(-8deg); }
 }
 
 /* 위험도 임계 초과: 심장박동에 맞춘 붉은 비네트 맥동 */

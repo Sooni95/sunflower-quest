@@ -14,6 +14,8 @@ const ENTITY_EMOJI = {
   withered: '🥀',
   powerup: '⭐',
   golden: '🌻', // 같은 글리프에 골드 글로우 CSS로 차별화
+  bee: '🐝',
+  seedbag: '🌰',
 };
 
 let pointsEl;

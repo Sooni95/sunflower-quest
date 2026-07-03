@@ -99,6 +99,17 @@ export function playEvolve() {
   tone({ type: 'triangle', freq: 784, dur: 0.2, gain: 0.16, when: 0.22 });
 }
 
+// 벌(🐝): 짧고 따끔한 쏘임음
+export function playBeeSting() {
+  tone({ type: 'square', freq: 300, dur: 0.1, gain: 0.15, slide: 150 });
+  vibrate(VIBRATE_HARVEST_MS * 2);
+}
+
+// 씨앗 주머니(🌰): 흔들리는 듯한 통통 튀는 톤
+export function playSeedbagPop() {
+  tone({ type: 'sine', freq: 300, dur: 0.12, gain: 0.12, slide: 200 });
+}
+
 // 파워업(⭐): 반짝이는 상승 글라이드
 export function playPowerup() {
   tone({ type: 'sine', freq: 660, dur: 0.18, gain: 0.14, slide: 1320 });

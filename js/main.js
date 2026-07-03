@@ -52,6 +52,13 @@ import {
   EVENT_GUST_AMPLITUDE_PX,
   EVENT_GUST_PERIOD_MS,
   MIN_EFFECTIVE_SPAWN_INTERVAL,
+  SPECIAL_ENTITY_MIN_STAGE_ID,
+  BEE_SPAWN_CHANCE,
+  BEE_DANGER_PENALTY,
+  SEEDBAG_SPAWN_CHANCE,
+  SEEDBAG_POP_DELAY_MS,
+  SEEDBAG_BURST_COUNT,
+  SEEDBAG_BURST_LIFETIME_RATIO,
 } from './config.js';
 import {
   state,
@@ -80,8 +87,19 @@ import {
   resetDanger,
   addBonusPoints,
   applyStormClearRelief,
+  applyBeeDangerPenalty,
 } from './state.js';
-import { createEntity, createPowerupEntity, createGoldenEntity, isExpired, isFlipReady, applyFlip } from './entities.js';
+import {
+  createEntity,
+  createPowerupEntity,
+  createGoldenEntity,
+  createBeeEntity,
+  createSeedbagEntity,
+  createBurstEntity,
+  isExpired,
+  isFlipReady,
+  applyFlip,
+} from './entities.js';
 import {
   playHarvest,
   playMiss,
@@ -96,6 +114,8 @@ import {
   playEventIncoming,
   startGoldenRushLoop,
   stopGoldenRushLoop,
+  playBeeSting,
+  playSeedbagPop,
 } from './audio.js';
 import { tryEvolve, applyChoice } from './evolution.js';
 import { onTap } from './input.js';
@@ -357,6 +377,18 @@ function handleFieldTap(id) {
     activatePowerupBuff();
     playPowerup();
     refreshHUD();
+  } else if (entity.type === 'bee') {
+    removeEntityEl(el);
+    applyBeeDangerPenalty(BEE_DANGER_PENALTY);
+    playBeeSting();
+    refreshHUD();
+
+    if (isGameOver()) triggerGameOver();
+  } else if (entity.type === 'seedbag') {
+    playHarvestFeedback(el);
+    removeEntityEl(el);
+    playSeedbagPop();
+    scheduleSeedbagBurst(entity.x, entity.y);
   } else {
     const lost = applyWitherPenalty();
     showFloatingText(entity.x, entity.y, `-${lost}`, 'loss');
@@ -374,6 +406,22 @@ function activatePowerupBuff() {
   setFieldBuffed(true, POWERUP_HIT_PADDING);
   clearTimeout(powerupBuffTimer);
   powerupBuffTimer = setTimeout(() => setFieldBuffed(false, 0), POWERUP_BUFF_DURATION);
+}
+
+// 씨앗 주머니를 탭하고 SEEDBAG_POP_DELAY_MS 후, 그 자리 주변에 해바라기를 무더기로 팝한다.
+function scheduleSeedbagBurst(x, y) {
+  setTimeout(() => {
+    if (phase !== 'field') return; // 지연 중 보스전/대화 등으로 전환된 경우
+    const { width, height } = getFieldSize();
+    const burstLifetime = currentStage().lifetime * SEEDBAG_BURST_LIFETIME_RATIO;
+
+    for (let i = 0; i < SEEDBAG_BURST_COUNT; i++) {
+      const entity = createBurstEntity(width, height, x, y, burstLifetime);
+      const el = renderEntity(entity);
+      onTap(el, () => handleEntityTap(entity.id));
+      liveEntities.set(entity.id, { entity, el });
+    }
+  }, SEEDBAG_POP_DELAY_MS);
 }
 
 function triggerGameOver() {
@@ -451,11 +499,24 @@ function trySpawn() {
     return;
   }
 
+  const specialEntitiesUnlocked = currentStage().id >= SPECIAL_ENTITY_MIN_STAGE_ID;
+
+  if (phase === 'field' && specialEntitiesUnlocked && !hasLiveType('bee') && Math.random() < BEE_SPAWN_CHANCE) {
+    spawnSpecial(createBeeEntity, width, height);
+    return;
+  }
+
+  if (phase === 'field' && specialEntitiesUnlocked && !hasLiveType('seedbag') && Math.random() < SEEDBAG_SPAWN_CHANCE) {
+    spawnSpecial(createSeedbagEntity, width, height);
+    return;
+  }
+
   const witheredRatioOverride = activeEvent?.type === EVENT_TYPES.WITHER_STORM ? EVENT_STORM_WITHERED_RATIO : null;
   const entity = createEntity(width, height, lastSpawnPos, currentStage(), witheredRatioOverride);
 
   if (phase === 'field' && activeEvent?.type === EVENT_TYPES.GUST) {
     entity.motion = {
+      kind: 'sine',
       baseX: entity.x,
       amplitude: EVENT_GUST_AMPLITUDE_PX,
       periodMs: EVENT_GUST_PERIOD_MS,
@@ -480,18 +541,27 @@ function scheduleSpawn() {
   }, interval);
 }
 
-function updateGustMotion(entity, el, now) {
+// 좌우 이동 개체(돌풍의 사인파, 벌의 직선 이동) 공통 갱신.
+function updateEntityMotion(entity, el, now) {
   if (!entity.motion) return;
   const elapsed = now - entity.spawnedAt;
-  const offset = entity.motion.amplitude * Math.sin((2 * Math.PI * elapsed) / entity.motion.periodMs + entity.motion.phase);
+  let offset = 0;
+
+  if (entity.motion.kind === 'sine') {
+    offset = entity.motion.amplitude * Math.sin((2 * Math.PI * elapsed) / entity.motion.periodMs + entity.motion.phase);
+  } else if (entity.motion.kind === 'linear') {
+    const progress = Math.min(elapsed / entity.motion.durationMs, 1);
+    offset = entity.motion.distance * progress;
+  }
+
   entity.x = entity.motion.baseX + offset;
-  el.style.setProperty('--gust-dx', `${offset}px`);
+  el.style.setProperty('--motion-dx', `${offset}px`);
 }
 
 function cleanupExpired() {
   const now = performance.now();
   for (const [id, { entity, el }] of liveEntities) {
-    updateGustMotion(entity, el, now);
+    updateEntityMotion(entity, el, now);
     if (isFlipReady(entity, now)) {
       applyFlip(entity);
       updateEntityVisual(el, entity.type);

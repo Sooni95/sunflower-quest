@@ -249,3 +249,19 @@ export const EVENT_GUST_DURATION_MS = 6000;
 export const EVENT_GUST_POINT_MULTIPLIER = 1.5;
 export const EVENT_GUST_AMPLITUDE_PX = 40; // 좌우 진폭
 export const EVENT_GUST_PERIOD_MS = 1400;  // 왕복 주기
+
+// §7-2e 신규 개체 (M7 P2 — DESIGN-M7.md 참고). 4단계부터 등장.
+export const SPECIAL_ENTITY_MIN_STAGE_ID = 4;
+
+// B-1 벌: 화면을 가로지르는 이동형 회피물
+export const BEE_SPAWN_CHANCE = 0.04;     // 스폰 시도마다 벌로 대체될 확률 (필드에 벌이 없을 때만)
+export const BEE_CROSS_DURATION_MS = 5000; // 화면을 가로지르는 데 걸리는 시간 (= 수명)
+export const BEE_DANGER_PENALTY = 10;     // 탭 시 위험도 상승분 (포인트 손실 없음)
+
+// B-2 씨앗 주머니: 탭하면 잠시 후 주변에 해바라기가 무더기로 팝
+export const SEEDBAG_SPAWN_CHANCE = 0.03; // 스폰 시도마다 씨앗 주머니로 대체될 확률 (필드에 없을 때만)
+export const SEEDBAG_LIFETIME = 1500;     // ms, 방치하면 그냥 소멸
+export const SEEDBAG_POP_DELAY_MS = 1000; // 탭 후 팝까지의 지연
+export const SEEDBAG_BURST_COUNT = 3;     // 동시에 팝되는 해바라기 수
+export const SEEDBAG_BURST_RADIUS_PX = 70; // 팝 위치가 흩뿌려지는 반경
+export const SEEDBAG_BURST_LIFETIME_RATIO = 0.6; // 팝된 해바라기의 수명 = 현재 단계 수명 × 이 값

@@ -118,6 +118,15 @@ export function applyWitherPenalty() {
   return loss;
 }
 
+// 벌 탭: 포인트 손실은 없지만 위험도가 오르고 콤보가 끊긴다 (§7-2e).
+export function applyBeeDangerPenalty(amount) {
+  state.combo.streak = 0;
+  state.combo.multiplier = 1.0;
+  state.danger = Math.min(state.danger + amount, MAX_DANGER);
+  saveState();
+  return state.danger;
+}
+
 export function isGameOver() {
   return state.danger >= MAX_DANGER;
 }

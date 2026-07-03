@@ -9,6 +9,9 @@ import {
   FAKE_PATTERN_CHANCE,
   POWERUP_LIFETIME,
   GOLDEN_LIFETIME,
+  BEE_CROSS_DURATION_MS,
+  SEEDBAG_LIFETIME,
+  SEEDBAG_BURST_RADIUS_PX,
 } from './config.js';
 
 let nextId = 1;
@@ -99,6 +102,58 @@ export function createGoldenEntity(fieldWidth, fieldHeight, lastPos) {
     y: position.y,
     spawnedAt: performance.now(),
     lifetime: GOLDEN_LIFETIME,
+    flipAt: null,
+  };
+}
+
+// 벌: 화면 한쪽 끝에서 반대쪽으로 가로질러 이동 (수명 = 이동 시간).
+export function createBeeEntity(fieldWidth, fieldHeight) {
+  const marginY = fieldHeight * FIELD_EDGE_MARGIN_RATIO;
+  const y = randomInRange(marginY, fieldHeight - marginY);
+  const goingRight = Math.random() < 0.5;
+  const startX = goingRight ? 0 : fieldWidth;
+  const endX = goingRight ? fieldWidth : 0;
+
+  return {
+    id: nextId++,
+    type: 'bee',
+    x: startX,
+    y,
+    spawnedAt: performance.now(),
+    lifetime: BEE_CROSS_DURATION_MS,
+    flipAt: null,
+    motion: { kind: 'linear', baseX: startX, distance: endX - startX, durationMs: BEE_CROSS_DURATION_MS },
+  };
+}
+
+// 씨앗 주머니: 탭하면 주변에 해바라기가 무더기로 팝 (배선은 main.js에서).
+export function createSeedbagEntity(fieldWidth, fieldHeight, lastPos) {
+  const position = pickPosition(fieldWidth, fieldHeight, lastPos);
+  return {
+    id: nextId++,
+    type: 'seedbag',
+    x: position.x,
+    y: position.y,
+    spawnedAt: performance.now(),
+    lifetime: SEEDBAG_LIFETIME,
+    flipAt: null,
+  };
+}
+
+// 씨앗 주머니가 터질 때 주변에 흩뿌려지는 해바라기 1개. 최소 거리 규칙은 의도적으로 무시(뭉쳐 나오는 게 컨셉).
+export function createBurstEntity(fieldWidth, fieldHeight, centerX, centerY, lifetime) {
+  const angle = Math.random() * Math.PI * 2;
+  const radius = Math.random() * SEEDBAG_BURST_RADIUS_PX;
+  const x = Math.min(Math.max(centerX + Math.cos(angle) * radius, 0), fieldWidth);
+  const y = Math.min(Math.max(centerY + Math.sin(angle) * radius, 0), fieldHeight);
+
+  return {
+    id: nextId++,
+    type: 'sunflower',
+    x,
+    y,
+    spawnedAt: performance.now(),
+    lifetime,
     flipAt: null,
   };
 }
