@@ -85,4 +85,9 @@ export const en = {
   'danger.warning': 'Careful... your hands are starting to shake.',
   'ending.gameover.title': 'Game Over',
   'ending.gameover.toast': '...well, that\'s as far as we got.',
+
+  'event.goldenRush.incoming': '!! Gold incoming !!',
+  'event.witherStorm.incoming': '!! Wither storm — hold the line !!',
+  'event.gust.incoming': '!! Gust warning — hang on !!',
+  'event.storm.cleared': 'You held. Impressive.',
 };

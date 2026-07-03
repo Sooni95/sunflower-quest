@@ -34,6 +34,24 @@ import {
   GOLDEN_SPAWN_CHANCE,
   GOLDEN_POINT_MULTIPLIER,
   HEARTBEAT_DANGER_THRESHOLD,
+  EVENT_TYPES,
+  EVENT_WEIGHTS,
+  EVENT_MIN_STAGE_ID,
+  EVENT_INTERVAL_MIN_MS,
+  EVENT_INTERVAL_MAX_MS,
+  EVENT_WARNING_MS,
+  EVENT_GOLDEN_RUSH_DURATION_MS,
+  EVENT_GOLDEN_RUSH_SPAWN_FACTOR,
+  EVENT_STORM_DURATION_MS,
+  EVENT_STORM_WITHERED_RATIO,
+  EVENT_STORM_SPAWN_FACTOR,
+  EVENT_STORM_CLEAR_DANGER_RELIEF,
+  EVENT_STORM_CLEAR_BONUS_MULTIPLIER,
+  EVENT_GUST_DURATION_MS,
+  EVENT_GUST_POINT_MULTIPLIER,
+  EVENT_GUST_AMPLITUDE_PX,
+  EVENT_GUST_PERIOD_MS,
+  MIN_EFFECTIVE_SPAWN_INTERVAL,
 } from './config.js';
 import {
   state,
@@ -60,6 +78,8 @@ import {
   applyPowerupRelief,
   getEffectiveSpawnInterval,
   resetDanger,
+  addBonusPoints,
+  applyStormClearRelief,
 } from './state.js';
 import { createEntity, createPowerupEntity, createGoldenEntity, isExpired, isFlipReady, applyFlip } from './entities.js';
 import {
@@ -73,6 +93,9 @@ import {
   stopHeartbeat,
   isMuted,
   toggleMuted,
+  playEventIncoming,
+  startGoldenRushLoop,
+  stopGoldenRushLoop,
 } from './audio.js';
 import { tryEvolve, applyChoice } from './evolution.js';
 import { onTap } from './input.js';
@@ -108,6 +131,8 @@ import {
   showDangerWarning,
   setDangerVignette,
   initSoundToggle,
+  showEventBanner,
+  setEventTint,
 } from './ui.js';
 
 const liveEntities = new Map(); // id -> { entity, el }
@@ -118,6 +143,23 @@ let evolutionInProgress = false;
 let phase = 'field'; // 'field' | 'boss' | 'dialogue' | 'ended'
 let powerupBuffTimer = null;
 let dangerWarningShown = false;
+
+// --- 필드 이벤트 (§7-2d, DESIGN-M7.md P1) ---
+let eventTimer = null;      // 다음 예약된 콜백(대기/예고/종료) 하나만 들고 있음
+let activeEvent = null;     // { type } — 예고 중이 아니라 실제 진행 중일 때만 세팅
+let stormNoMiss = true;     // 시든 폭풍 동안 한 번도 안 놓쳤는지
+
+const EVENT_DURATIONS_MS = {
+  [EVENT_TYPES.GOLDEN_RUSH]: EVENT_GOLDEN_RUSH_DURATION_MS,
+  [EVENT_TYPES.WITHER_STORM]: EVENT_STORM_DURATION_MS,
+  [EVENT_TYPES.GUST]: EVENT_GUST_DURATION_MS,
+};
+
+const EVENT_TINTS = {
+  [EVENT_TYPES.GOLDEN_RUSH]: 'rgba(255, 193, 7, 0.14)',
+  [EVENT_TYPES.WITHER_STORM]: 'rgba(103, 58, 183, 0.22)',
+  [EVENT_TYPES.GUST]: null,
+};
 
 function refreshHUD() {
   updateHUD(state.points, currentStage().nameKey);
@@ -137,11 +179,93 @@ function maybeWarnDanger() {
 }
 
 // 위험도 임계 초과 시 심장박동 사운드 + 붉은 비네트를 함께 켜고 끈다.
+// 시든 폭풍 이벤트 중에는 위험도와 무관하게 강제로 켠다 (§7-2d).
 function syncHeartbeat() {
-  const critical = phase === 'field' && state.danger >= HEARTBEAT_DANGER_THRESHOLD;
+  const stormForced = activeEvent?.type === EVENT_TYPES.WITHER_STORM;
+  const critical = phase === 'field' && (state.danger >= HEARTBEAT_DANGER_THRESHOLD || stormForced);
   setDangerVignette(critical);
   if (critical) startHeartbeat();
   else stopHeartbeat();
+}
+
+// --- 필드 이벤트 스케줄러 ---
+
+function randomBetween(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+function pickWeightedEvent() {
+  const entries = Object.entries(EVENT_WEIGHTS);
+  const total = entries.reduce((sum, [, weight]) => sum + weight, 0);
+  let roll = Math.random() * total;
+  for (const [type, weight] of entries) {
+    if (roll < weight) return type;
+    roll -= weight;
+  }
+  return entries[0][0];
+}
+
+function getEventSpawnFactor() {
+  if (activeEvent?.type === EVENT_TYPES.GOLDEN_RUSH) return EVENT_GOLDEN_RUSH_SPAWN_FACTOR;
+  if (activeEvent?.type === EVENT_TYPES.WITHER_STORM) return EVENT_STORM_SPAWN_FACTOR;
+  return 1;
+}
+
+function scheduleNextEventCheck() {
+  clearTimeout(eventTimer);
+  eventTimer = setTimeout(maybeStartEvent, randomBetween(EVENT_INTERVAL_MIN_MS, EVENT_INTERVAL_MAX_MS));
+}
+
+function maybeStartEvent() {
+  if (phase !== 'field') return; // 필드를 완전히 벗어남(보스전/대화/게임오버) — 스케줄러 종료
+
+  if (currentStage().id < EVENT_MIN_STAGE_ID) {
+    scheduleNextEventCheck();
+    return;
+  }
+
+  const type = pickWeightedEvent();
+  playEventIncoming();
+  showEventBanner(t(`event.${type}.incoming`), EVENT_WARNING_MS);
+  eventTimer = setTimeout(() => startEvent(type), EVENT_WARNING_MS);
+}
+
+function startEvent(type) {
+  if (phase !== 'field') return; // 예고 중에 보스전 등으로 전환된 경우
+
+  activeEvent = { type };
+  if (type === EVENT_TYPES.WITHER_STORM) stormNoMiss = true;
+
+  setEventTint(EVENT_TINTS[type]);
+  if (type === EVENT_TYPES.GOLDEN_RUSH) startGoldenRushLoop();
+  syncHeartbeat();
+
+  eventTimer = setTimeout(() => endEvent(type), EVENT_DURATIONS_MS[type]);
+}
+
+// 보너스 지급 없이 즉시 중단 (모달/보스전 진입 등으로 인터럽트될 때)
+function abortActiveEvent() {
+  clearTimeout(eventTimer);
+  eventTimer = null;
+  if (activeEvent?.type === EVENT_TYPES.GOLDEN_RUSH) stopGoldenRushLoop();
+  setEventTint(null);
+  activeEvent = null;
+  syncHeartbeat();
+}
+
+function endEvent(type) {
+  if (type === EVENT_TYPES.WITHER_STORM && stormNoMiss) {
+    applyStormClearRelief(EVENT_STORM_CLEAR_DANGER_RELIEF);
+    addBonusPoints(currentStage().basePoints * EVENT_STORM_CLEAR_BONUS_MULTIPLIER);
+    showDangerWarning(t('event.storm.cleared'));
+    refreshHUD();
+  }
+  if (type === EVENT_TYPES.GOLDEN_RUSH) stopGoldenRushLoop();
+
+  setEventTint(null);
+  activeEvent = null;
+  syncHeartbeat();
+  scheduleNextEventCheck();
 }
 
 function restartAutoHarvest() {
@@ -168,6 +292,7 @@ function handleEvolutionCheck() {
     onChoiceRequired: (newStage, choices) => {
       evolutionInProgress = true;
       clearTimeout(spawnTimer);
+      abortActiveEvent(); // 진화 모달이 열리면 진행 중이던 필드 이벤트는 즉시 종료 (§7-2d)
       refreshHUD();
       playEvolve();
       showEvolutionToast(newStage.nameKey, `evo.comment.stage${newStage.id}`);
@@ -177,6 +302,7 @@ function handleEvolutionCheck() {
         restartAutoHarvest();
         evolutionInProgress = false;
         scheduleSpawn();
+        scheduleNextEventCheck();
         handleEvolutionCheck(); // 큰 포인트 점프로 여러 단계를 한 번에 넘었을 경우 이어서 확인
       });
     },
@@ -210,7 +336,8 @@ function handleFieldTap(id) {
 
   if (entity.type === 'sunflower' || entity.type === 'golden') {
     const isGolden = entity.type === 'golden';
-    const gained = addHarvestPoints(isGolden ? GOLDEN_POINT_MULTIPLIER : 1);
+    const multiplier = isGolden ? GOLDEN_POINT_MULTIPLIER : (entity.gustBoosted ? EVENT_GUST_POINT_MULTIPLIER : 1);
+    const gained = addHarvestPoints(multiplier);
     playHarvestFeedback(el);
     showFloatingText(entity.x, entity.y, `+${gained}`, 'gain');
     setTimeout(() => removeEntityEl(el), HARVEST_REMOVE_DELAY);
@@ -236,6 +363,7 @@ function handleFieldTap(id) {
     triggerWitherFeedback();
     removeEntityEl(el);
     playMiss();
+    if (activeEvent?.type === EVENT_TYPES.WITHER_STORM) stormNoMiss = false;
     refreshHUD();
 
     if (isGameOver()) triggerGameOver();
@@ -252,6 +380,7 @@ function triggerGameOver() {
   phase = 'ended';
   clearTimeout(spawnTimer);
   clearLiveEntities();
+  abortActiveEvent();
   stopHeartbeat();
   setDangerVignette(false);
   playGameOver();
@@ -306,6 +435,12 @@ function trySpawn() {
 
   const { width, height } = getFieldSize();
 
+  // 황금 러시 중에는 신규 스폰이 전부 황금(동시 다수 허용, 1개 제한 무시)
+  if (phase === 'field' && activeEvent?.type === EVENT_TYPES.GOLDEN_RUSH) {
+    spawnSpecial(createGoldenEntity, width, height);
+    return;
+  }
+
   if (phase === 'field' && !hasLiveType('powerup') && Math.random() < POWERUP_SPAWN_CHANCE) {
     spawnSpecial(createPowerupEntity, width, height);
     return;
@@ -316,7 +451,19 @@ function trySpawn() {
     return;
   }
 
-  const entity = createEntity(width, height, lastSpawnPos, currentStage());
+  const witheredRatioOverride = activeEvent?.type === EVENT_TYPES.WITHER_STORM ? EVENT_STORM_WITHERED_RATIO : null;
+  const entity = createEntity(width, height, lastSpawnPos, currentStage(), witheredRatioOverride);
+
+  if (phase === 'field' && activeEvent?.type === EVENT_TYPES.GUST) {
+    entity.motion = {
+      baseX: entity.x,
+      amplitude: EVENT_GUST_AMPLITUDE_PX,
+      periodMs: EVENT_GUST_PERIOD_MS,
+      phase: Math.random() * Math.PI * 2,
+    };
+    entity.gustBoosted = true;
+  }
+
   lastSpawnPos = { x: entity.x, y: entity.y };
 
   const el = renderEntity(entity);
@@ -326,15 +473,25 @@ function trySpawn() {
 
 function scheduleSpawn() {
   clearTimeout(spawnTimer);
+  const interval = Math.max(getEffectiveSpawnInterval() * getEventSpawnFactor(), MIN_EFFECTIVE_SPAWN_INTERVAL);
   spawnTimer = setTimeout(() => {
     trySpawn();
     scheduleSpawn();
-  }, getEffectiveSpawnInterval());
+  }, interval);
+}
+
+function updateGustMotion(entity, el, now) {
+  if (!entity.motion) return;
+  const elapsed = now - entity.spawnedAt;
+  const offset = entity.motion.amplitude * Math.sin((2 * Math.PI * elapsed) / entity.motion.periodMs + entity.motion.phase);
+  entity.x = entity.motion.baseX + offset;
+  el.style.setProperty('--gust-dx', `${offset}px`);
 }
 
 function cleanupExpired() {
   const now = performance.now();
   for (const [id, { entity, el }] of liveEntities) {
+    updateGustMotion(entity, el, now);
     if (isFlipReady(entity, now)) {
       applyFlip(entity);
       updateEntityVisual(el, entity.type);
@@ -351,6 +508,7 @@ function enterBossOrDialogue() {
   clearTimeout(spawnTimer);
   clearLiveEntities();
   resetDanger();
+  abortActiveEvent();
   clearTimeout(powerupBuffTimer);
   setFieldBuffed(false, 0);
   updateDangerOverlay(0, MAX_DANGER_DARKEN_OPACITY);
@@ -564,6 +722,7 @@ function init() {
   initDebugCheat();
   startPlayTimeTicker();
   startDangerDecayTicker();
+  scheduleNextEventCheck();
   maybeShowFinalStageButton();
   initLangToggle(cycleLang);
   initSoundToggle(isMuted(), toggleMuted);

@@ -59,9 +59,10 @@ function rollFakePattern(baseType, stageId) {
   return { flipAt: null };
 }
 
-export function createEntity(fieldWidth, fieldHeight, lastPos, stage) {
+// witheredRatioOverride: 필드 이벤트(시든 폭풍 등)가 스폰 시점의 시든 꽃 비율을 임시로 덮어쓸 때 사용.
+export function createEntity(fieldWidth, fieldHeight, lastPos, stage, witheredRatioOverride = null) {
   const position = pickPosition(fieldWidth, fieldHeight, lastPos);
-  const baseType = pickType(stage.witheredRatio);
+  const baseType = pickType(witheredRatioOverride ?? stage.witheredRatio);
   const { flipAt } = rollFakePattern(baseType, stage.id);
 
   return {

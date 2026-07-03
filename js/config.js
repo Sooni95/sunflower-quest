@@ -213,3 +213,39 @@ export const COMBO_PITCH_MAX = 2.0;           // 수확음 음정 상한 (기본
 export const VIBRATE_HARVEST_MS = 15;         // 수확 시 짧은 햅틱
 export const VIBRATE_MISS_PATTERN = [60, 40, 60];   // 실수 시 묵직한 이중 진동
 export const VIBRATE_GAMEOVER_PATTERN = [200, 80, 200, 80, 400]; // 게임오버
+
+// §7-2d 필드 이벤트 (M7 P1 — DESIGN-M7.md 참고)
+export const EVENT_TYPES = {
+  GOLDEN_RUSH: 'goldenRush',
+  WITHER_STORM: 'witherStorm',
+  GUST: 'gust',
+};
+
+export const EVENT_MIN_STAGE_ID = 2; // 2단계부터 이벤트 발생
+export const EVENT_INTERVAL_MIN_MS = 40000; // 이벤트 종료 후 다음 이벤트까지 최소 대기
+export const EVENT_INTERVAL_MAX_MS = 90000; // 최대 대기
+export const EVENT_WARNING_MS = 1000;        // 예고 배너 노출 시간 (발동 1초 전)
+
+// 종류는 균등 가중치 (전부 1) — 특정 이벤트를 더 자주 내고 싶으면 이 값만 조정
+export const EVENT_WEIGHTS = {
+  [EVENT_TYPES.GOLDEN_RUSH]: 1,
+  [EVENT_TYPES.WITHER_STORM]: 1,
+  [EVENT_TYPES.GUST]: 1,
+};
+
+// A-1 황금 러시: 전량 황금 스폰 + 스폰 가속
+export const EVENT_GOLDEN_RUSH_DURATION_MS = 5000;
+export const EVENT_GOLDEN_RUSH_SPAWN_FACTOR = 0.5; // 스폰 간격에 곱함 (0.5 = 50% 단축)
+
+// A-2 시든 폭풍: 위기 이벤트, 노 미스 클리어 시 보상
+export const EVENT_STORM_DURATION_MS = 7000;
+export const EVENT_STORM_WITHERED_RATIO = 0.8;
+export const EVENT_STORM_SPAWN_FACTOR = 0.7; // 30% 단축
+export const EVENT_STORM_CLEAR_DANGER_RELIEF = 20;
+export const EVENT_STORM_CLEAR_BONUS_MULTIPLIER = 20; // 클리어 보너스 = 현재 단계 basePoints × 이 값
+
+// A-3 돌풍: 이동 개체 + 포인트 배율
+export const EVENT_GUST_DURATION_MS = 6000;
+export const EVENT_GUST_POINT_MULTIPLIER = 1.5;
+export const EVENT_GUST_AMPLITUDE_PX = 40; // 좌우 진폭
+export const EVENT_GUST_PERIOD_MS = 1400;  // 왕복 주기

@@ -22,6 +22,7 @@ let comboEl;
 let fieldEl;
 let flashEl;
 let dangerEl;
+let eventTintEl;
 let gameRootEl;
 
 export function initUI() {
@@ -31,6 +32,7 @@ export function initUI() {
   fieldEl = document.getElementById('field');
   flashEl = document.getElementById('flash-overlay');
   dangerEl = document.getElementById('danger-overlay');
+  eventTintEl = document.getElementById('event-tint');
   gameRootEl = document.getElementById('game-root');
 }
 
@@ -97,6 +99,20 @@ export function initSoundToggle(initialMuted, onToggle) {
 export function setFieldBuffed(active, hitPaddingPx) {
   fieldEl.classList.toggle('field-buffed', active);
   fieldEl.style.setProperty('--powerup-hit-padding', active ? `${hitPaddingPx}px` : '0px');
+}
+
+// 필드 이벤트(§7-2d) 예고 배너. durationMs 후 자동으로 사라진다.
+export function showEventBanner(text, durationMs) {
+  const el = document.createElement('div');
+  el.className = 'event-banner';
+  el.textContent = text;
+  gameRootEl.appendChild(el);
+  setTimeout(() => el.remove(), durationMs);
+}
+
+// 필드 이벤트 진행 중 화면 틴트. color가 null이면 해제.
+export function setEventTint(color) {
+  eventTintEl.style.background = color || 'rgba(0, 0, 0, 0)';
 }
 
 export function showDangerWarning(text) {

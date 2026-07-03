@@ -197,6 +197,18 @@ export function addDebugPoints(amount) {
   saveState();
 }
 
+// 필드 이벤트 보상 등 디버그 외 포인트 지급용 (§7-2d)
+export function addBonusPoints(amount) {
+  state.points += amount;
+  saveState();
+}
+
+export function applyStormClearRelief(amount) {
+  state.danger = Math.max(state.danger - amount, 0);
+  saveState();
+  return state.danger;
+}
+
 // --- 보스전 (§7-5) ---
 
 export function getBossTapDamage() {

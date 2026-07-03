@@ -13,6 +13,7 @@ import {
 let ctx = null;
 let muted = false;
 let heartbeatTimer = null;
+let goldenLoopTimer = null;
 
 try {
   muted = localStorage.getItem(SOUND_MUTE_KEY) === '1';
@@ -41,7 +42,10 @@ export function toggleMuted() {
   } catch (err) {
     console.warn('[audio] failed to save mute preference', err);
   }
-  if (muted) stopHeartbeat();
+  if (muted) {
+    stopHeartbeat();
+    stopGoldenRushLoop();
+  }
   return muted;
 }
 
@@ -138,4 +142,30 @@ export function stopHeartbeat() {
 
 export function isHeartbeatActive() {
   return heartbeatTimer !== null;
+}
+
+// --- 필드 이벤트 (§7-2d) ---
+
+// 이벤트 발동 1초 전 예고 배너와 함께 울리는 경고음 (3종 공통)
+export function playEventIncoming() {
+  tone({ type: 'sine', freq: 880, dur: 0.08, gain: 0.12 });
+  tone({ type: 'sine', freq: 880, dur: 0.08, gain: 0.12, when: 0.12 });
+}
+
+function goldenArpeggio() {
+  tone({ type: 'square', freq: 523, dur: 0.08, gain: 0.08 });
+  tone({ type: 'square', freq: 659, dur: 0.08, gain: 0.08, when: 0.08 });
+  tone({ type: 'square', freq: 784, dur: 0.08, gain: 0.08, when: 0.16 });
+}
+
+// 황금 러시 지속 시간 동안 반복되는 밝은 아르페지오 루프
+export function startGoldenRushLoop() {
+  if (goldenLoopTimer || muted) return;
+  goldenArpeggio();
+  goldenLoopTimer = setInterval(goldenArpeggio, 500);
+}
+
+export function stopGoldenRushLoop() {
+  clearInterval(goldenLoopTimer);
+  goldenLoopTimer = null;
 }

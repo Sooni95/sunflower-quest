@@ -85,4 +85,9 @@ export const ko = {
   'danger.warning': '위험해... 손이 떨리기 시작했어.',
   'ending.gameover.title': '게임오버',
   'ending.gameover.toast': '...결국 여기까지였네.',
+
+  'event.goldenRush.incoming': '!! 금빛이 몰려온다 !!',
+  'event.witherStorm.incoming': '!! 시든 폭풍이다, 버텨! !!',
+  'event.gust.incoming': '!! 돌풍 주의 — 흔들린다 !!',
+  'event.storm.cleared': '버텼다. 대단한데?',
 };

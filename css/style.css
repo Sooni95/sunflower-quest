@@ -61,7 +61,8 @@ html, body {
 
 .entity {
   position: absolute;
-  transform: translate(-50%, -50%);
+  /* --gust-dx: 돌풍 이벤트(§7-2d) 중 좌우 흔들림 오프셋. 평소엔 0px. */
+  transform: translate(calc(-50% + var(--gust-dx, 0px)), -50%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -174,6 +175,32 @@ html, body {
   background: rgba(10, 5, 15, 0);
   pointer-events: none;
   transition: background 0.4s ease-out;
+}
+
+#event-tint {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0);
+  pointer-events: none;
+  transition: background 0.5s ease-out;
+  z-index: 2;
+}
+
+.event-banner {
+  position: absolute;
+  top: 14%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 85%;
+  text-align: center;
+  background: #FFC107;
+  color: #4E342E;
+  font-weight: 800;
+  padding: 12px 22px;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  animation: toast-pop 0.2s ease-out;
+  z-index: 6;
 }
 
 #flash-overlay {
