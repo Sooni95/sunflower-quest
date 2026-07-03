@@ -59,6 +59,13 @@ import {
   SEEDBAG_POP_DELAY_MS,
   SEEDBAG_BURST_COUNT,
   SEEDBAG_BURST_LIFETIME_RATIO,
+  MISSION_MIN_STAGE_ID,
+  MISSION_INTERVAL_MIN_MS,
+  MISSION_INTERVAL_MAX_MS,
+  MISSION_DURATION_MS,
+  MISSION_HARVEST_TARGET,
+  MISSION_SUCCESS_BONUS_MULTIPLIER,
+  MISSION_TICK_INTERVAL_MS,
 } from './config.js';
 import {
   state,
@@ -116,6 +123,7 @@ import {
   stopGoldenRushLoop,
   playBeeSting,
   playSeedbagPop,
+  playMissionSuccess,
 } from './audio.js';
 import { tryEvolve, applyChoice } from './evolution.js';
 import { onTap } from './input.js';
@@ -153,6 +161,9 @@ import {
   initSoundToggle,
   showEventBanner,
   setEventTint,
+  showMissionStartBanner,
+  updateMissionStatus,
+  showMissionSuccessToast,
 } from './ui.js';
 
 const liveEntities = new Map(); // id -> { entity, el }
@@ -180,6 +191,11 @@ const EVENT_TINTS = {
   [EVENT_TYPES.WITHER_STORM]: 'rgba(103, 58, 183, 0.22)',
   [EVENT_TYPES.GUST]: null,
 };
+
+// --- 순간 미션 (§7-2f, DESIGN-M7.md P3). 필드 이벤트(A/B)와 동시 발생하지 않는다. ---
+let missionTimer = null;     // 다음 예약된 콜백(대기/종료) 하나만 들고 있음
+let missionTickTimer = null; // 남은 시간 표시 갱신용
+let activeMission = null;    // { target, progress, endsAt }
 
 function refreshHUD() {
   updateHUD(state.points, currentStage().nameKey);
@@ -239,8 +255,8 @@ function scheduleNextEventCheck() {
 function maybeStartEvent() {
   if (phase !== 'field') return; // 필드를 완전히 벗어남(보스전/대화/게임오버) — 스케줄러 종료
 
-  if (currentStage().id < EVENT_MIN_STAGE_ID) {
-    scheduleNextEventCheck();
+  if (currentStage().id < EVENT_MIN_STAGE_ID || activeMission) {
+    scheduleNextEventCheck(); // 미션 진행 중이면 이번 차례는 건너뛰고 다시 대기 (동시 발생 금지)
     return;
   }
 
@@ -288,6 +304,74 @@ function endEvent(type) {
   scheduleNextEventCheck();
 }
 
+// --- 순간 미션 스케줄러 ---
+
+function scheduleNextMissionCheck() {
+  clearTimeout(missionTimer);
+  missionTimer = setTimeout(maybeStartMission, randomBetween(MISSION_INTERVAL_MIN_MS, MISSION_INTERVAL_MAX_MS));
+}
+
+function maybeStartMission() {
+  if (phase !== 'field') return; // 필드를 완전히 벗어남 — 스케줄러 종료
+
+  if (currentStage().id < MISSION_MIN_STAGE_ID || activeEvent) {
+    scheduleNextMissionCheck(); // 필드 이벤트 진행 중이면 이번 차례는 건너뛴다 (동시 발생 금지)
+    return;
+  }
+
+  startMission();
+}
+
+function startMission() {
+  activeMission = { target: MISSION_HARVEST_TARGET, progress: 0, endsAt: performance.now() + MISSION_DURATION_MS };
+  showMissionStartBanner(t('mission.start'));
+  updateMissionDisplay();
+  missionTickTimer = setInterval(updateMissionDisplay, MISSION_TICK_INTERVAL_MS);
+  missionTimer = setTimeout(() => endMission(false), MISSION_DURATION_MS);
+}
+
+function updateMissionDisplay() {
+  if (!activeMission) return;
+  const secLeft = Math.max(0, Math.ceil((activeMission.endsAt - performance.now()) / 1000));
+  updateMissionStatus(`${t('hud.mission')} ${activeMission.progress}/${activeMission.target} · ${secLeft}s`);
+}
+
+// 미션 진행 중 진화 모달/보스전 진입 등으로 인터럽트될 때 — 보너스 없이 조용히 중단.
+function abortActiveMission() {
+  clearTimeout(missionTimer);
+  clearInterval(missionTickTimer);
+  missionTimer = null;
+  missionTickTimer = null;
+  activeMission = null;
+  updateMissionStatus('');
+}
+
+function registerMissionHarvest() {
+  if (!activeMission) return;
+  activeMission.progress += 1;
+  updateMissionDisplay();
+  if (activeMission.progress >= activeMission.target) endMission(true);
+}
+
+function endMission(success) {
+  clearTimeout(missionTimer);
+  clearInterval(missionTickTimer);
+  missionTimer = null;
+  missionTickTimer = null;
+
+  if (success) {
+    addBonusPoints(currentStage().basePoints * MISSION_SUCCESS_BONUS_MULTIPLIER);
+    playMissionSuccess();
+    showMissionSuccessToast(t('mission.success'));
+    refreshHUD();
+  }
+  // 실패 시엔 조용히 사라진다 (페널티도, 안내도 없음)
+
+  activeMission = null;
+  updateMissionStatus('');
+  scheduleNextMissionCheck();
+}
+
 function restartAutoHarvest() {
   clearInterval(autoHarvestTimer);
   const interval = getAutoHarvestInterval();
@@ -313,6 +397,7 @@ function handleEvolutionCheck() {
       evolutionInProgress = true;
       clearTimeout(spawnTimer);
       abortActiveEvent(); // 진화 모달이 열리면 진행 중이던 필드 이벤트는 즉시 종료 (§7-2d)
+      abortActiveMission(); // 진행 중이던 순간 미션도 함께 중단 (§7-2f)
       refreshHUD();
       playEvolve();
       showEvolutionToast(newStage.nameKey, `evo.comment.stage${newStage.id}`);
@@ -323,6 +408,7 @@ function handleEvolutionCheck() {
         evolutionInProgress = false;
         scheduleSpawn();
         scheduleNextEventCheck();
+        scheduleNextMissionCheck();
         handleEvolutionCheck(); // 큰 포인트 점프로 여러 단계를 한 번에 넘었을 경우 이어서 확인
       });
     },
@@ -368,6 +454,7 @@ function handleFieldTap(id) {
     const monologueThreshold = getNewMonologueThreshold();
     if (monologueThreshold) showMonologue(t(`monologue.${monologueThreshold}`));
 
+    registerMissionHarvest();
     handleEvolutionCheck();
   } else if (entity.type === 'powerup') {
     playHarvestFeedback(el);
@@ -429,6 +516,7 @@ function triggerGameOver() {
   clearTimeout(spawnTimer);
   clearLiveEntities();
   abortActiveEvent();
+  abortActiveMission();
   stopHeartbeat();
   setDangerVignette(false);
   playGameOver();
@@ -579,6 +667,7 @@ function enterBossOrDialogue() {
   clearLiveEntities();
   resetDanger();
   abortActiveEvent();
+  abortActiveMission();
   clearTimeout(powerupBuffTimer);
   setFieldBuffed(false, 0);
   updateDangerOverlay(0, MAX_DANGER_DARKEN_OPACITY);
@@ -793,6 +882,7 @@ function init() {
   startPlayTimeTicker();
   startDangerDecayTicker();
   scheduleNextEventCheck();
+  scheduleNextMissionCheck();
   maybeShowFinalStageButton();
   initLangToggle(cycleLang);
   initSoundToggle(isMuted(), toggleMuted);

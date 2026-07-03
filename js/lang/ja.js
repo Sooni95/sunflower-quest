@@ -90,4 +90,8 @@ export const ja = {
   'event.witherStorm.incoming': '!! 枯れ嵐だ、耐えろ !!', // !! 시든 폭풍이다, 버텨! !!
   'event.gust.incoming': '!! 突風注意、揺れるぞ !!', // !! 돌풍 주의 — 흔들린다 !!
   'event.storm.cleared': '耐えたな。やるじゃないか。', // 버텼다. 대단한데?
+
+  'mission.start': 'ミッション！8秒で6個収穫！', // 미션! 8초 안에 6개 수확!
+  'mission.success': 'ミッション達成！', // 미션 성공!
+  'hud.mission': 'ミッション', // 미션
 };

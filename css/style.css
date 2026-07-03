@@ -36,6 +36,10 @@ html, body {
   color: #FF8F00;
 }
 
+#hud-mission {
+  color: #2E7D32;
+}
+
 #hud-lang-btn,
 #hud-sound-btn {
   font: inherit;
@@ -221,6 +225,12 @@ html, body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   animation: toast-pop 0.2s ease-out;
   z-index: 6;
+}
+
+/* 순간 미션 배너는 필드 이벤트와 구분되게 초록 계열로 (§7-2f) */
+.event-banner.mission-banner {
+  background: #66BB6A;
+  color: #FFFFFF;
 }
 
 #flash-overlay {

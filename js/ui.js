@@ -7,6 +7,7 @@ import {
   MONOLOGUE_DISPLAY_DURATION,
   BOSS_ENTER_FLASH_DURATION,
   BOSS_INTRO_TOAST_DURATION,
+  MISSION_START_BANNER_DURATION_MS,
 } from './config.js';
 
 const ENTITY_EMOJI = {
@@ -21,6 +22,7 @@ const ENTITY_EMOJI = {
 let pointsEl;
 let stageEl;
 let comboEl;
+let missionEl;
 let fieldEl;
 let flashEl;
 let dangerEl;
@@ -31,6 +33,7 @@ export function initUI() {
   pointsEl = document.getElementById('hud-points');
   stageEl = document.getElementById('hud-stage');
   comboEl = document.getElementById('hud-combo');
+  missionEl = document.getElementById('hud-mission');
   fieldEl = document.getElementById('field');
   flashEl = document.getElementById('flash-overlay');
   dangerEl = document.getElementById('danger-overlay');
@@ -117,12 +120,35 @@ export function setEventTint(color) {
   eventTintEl.style.background = color || 'rgba(0, 0, 0, 0)';
 }
 
-export function showDangerWarning(text) {
+// 순간 미션(§7-2f) 시작 알림. 잠깐 뜨고 사라지며, 이후 진행 상황은 HUD 한 줄로만 표시된다(로그 아님).
+export function showMissionStartBanner(text) {
+  const el = document.createElement('div');
+  el.className = 'event-banner mission-banner';
+  el.textContent = text;
+  gameRootEl.appendChild(el);
+  setTimeout(() => el.remove(), MISSION_START_BANNER_DURATION_MS);
+}
+
+// HUD에 미션 진행 상황을 한 줄로 표시. text가 빈 문자열이면 숨김.
+export function updateMissionStatus(text) {
+  missionEl.textContent = text;
+}
+
+export function showMissionSuccessToast(text) {
+  showToast(text, BOSS_INTRO_TOAST_DURATION);
+}
+
+// 화면 중앙 상단에 잠깐 뜨는 일반 안내 토스트 (보스 인트로/위험 경고/미션 결과 등 공용).
+function showToast(text, durationMs) {
   const el = document.createElement('div');
   el.className = 'boss-intro-toast';
   el.textContent = text;
   gameRootEl.appendChild(el);
-  setTimeout(() => el.remove(), BOSS_INTRO_TOAST_DURATION);
+  setTimeout(() => el.remove(), durationMs);
+}
+
+export function showDangerWarning(text) {
+  showToast(text, BOSS_INTRO_TOAST_DURATION);
 }
 
 export function playHarvestFeedback(el) {
@@ -318,11 +344,7 @@ export function showBossEnterFlash() {
 }
 
 export function showBossIntro(text) {
-  const el = document.createElement('div');
-  el.className = 'boss-intro-toast';
-  el.textContent = text;
-  gameRootEl.appendChild(el);
-  setTimeout(() => el.remove(), BOSS_INTRO_TOAST_DURATION);
+  showToast(text, BOSS_INTRO_TOAST_DURATION);
 }
 
 // 태양형 진 엔딩 대화 씬. 화면 탭으로 다음 대사로 넘어간다.

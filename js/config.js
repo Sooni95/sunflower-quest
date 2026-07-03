@@ -265,3 +265,13 @@ export const SEEDBAG_POP_DELAY_MS = 1000; // 탭 후 팝까지의 지연
 export const SEEDBAG_BURST_COUNT = 3;     // 동시에 팝되는 해바라기 수
 export const SEEDBAG_BURST_RADIUS_PX = 70; // 팝 위치가 흩뿌려지는 반경
 export const SEEDBAG_BURST_LIFETIME_RATIO = 0.6; // 팝된 해바라기의 수명 = 현재 단계 수명 × 이 값
+
+// §7-2f 순간 미션 (M7 P3 — DESIGN-M7.md 참고). 3단계부터, 필드 이벤트(A/B)와 동시 발생 금지.
+export const MISSION_MIN_STAGE_ID = 3;
+export const MISSION_INTERVAL_MIN_MS = 120000; // 미션 종료 후 다음 미션까지 최소 대기
+export const MISSION_INTERVAL_MAX_MS = 240000; // 최대 대기
+export const MISSION_DURATION_MS = 8000;       // 제한 시간 (= "N초 안에")
+export const MISSION_HARVEST_TARGET = 6;       // 목표 수확 수 (= "M개")
+export const MISSION_SUCCESS_BONUS_MULTIPLIER = 15; // 성공 보너스 = 현재 단계 basePoints × 이 값
+export const MISSION_TICK_INTERVAL_MS = 250;   // 남은 시간 표시 갱신 주기
+export const MISSION_START_BANNER_DURATION_MS = 1800; // 시작 배너 노출 시간 (이후엔 HUD 진행 표시로 대체)

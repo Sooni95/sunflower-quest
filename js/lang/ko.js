@@ -90,4 +90,8 @@ export const ko = {
   'event.witherStorm.incoming': '!! 시든 폭풍이다, 버텨! !!',
   'event.gust.incoming': '!! 돌풍 주의 — 흔들린다 !!',
   'event.storm.cleared': '버텼다. 대단한데?',
+
+  'mission.start': '미션! 8초 안에 6개 수확!',
+  'mission.success': '미션 성공!',
+  'hud.mission': '미션',
 };

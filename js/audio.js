@@ -99,6 +99,13 @@ export function playEvolve() {
   tone({ type: 'triangle', freq: 784, dur: 0.2, gain: 0.16, when: 0.22 });
 }
 
+// 순간 미션 성공: 짧고 경쾌한 팡파레
+export function playMissionSuccess() {
+  tone({ type: 'triangle', freq: 660, dur: 0.1, gain: 0.14 });
+  tone({ type: 'triangle', freq: 880, dur: 0.1, gain: 0.14, when: 0.09 });
+  tone({ type: 'triangle', freq: 1100, dur: 0.18, gain: 0.16, when: 0.18 });
+}
+
 // 벌(🐝): 짧고 따끔한 쏘임음
 export function playBeeSting() {
   tone({ type: 'square', freq: 300, dur: 0.1, gain: 0.15, slide: 150 });

@@ -90,4 +90,8 @@ export const en = {
   'event.witherStorm.incoming': '!! Wither storm — hold the line !!',
   'event.gust.incoming': '!! Gust warning — hang on !!',
   'event.storm.cleared': 'You held. Impressive.',
+
+  'mission.start': 'Mission! Harvest 6 in 8 seconds!',
+  'mission.success': 'Mission complete!',
+  'hud.mission': 'Mission',
 };
