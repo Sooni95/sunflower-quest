@@ -196,3 +196,18 @@ export const POWERUP_LIFETIME = 1200;        // ms, 놓치면 사라짐
 export const POWERUP_BUFF_DURATION = 5000;   // ms, 판정 범위 확대 지속시간
 export const POWERUP_DANGER_RELIEF = 15;     // 파워업 습득 시 위험도 즉시 감소분
 export const POWERUP_HIT_PADDING = 18;       // px, 버프 중 엔티티 판정 영역에 추가되는 여백
+
+// 황금 해바라기 (초단명 고득점 — 순간 판단 압박)
+export const GOLDEN_SPAWN_CHANCE = 0.02;     // 스폰 시도마다 황금으로 대체될 확률 (필드에 황금이 없을 때만)
+export const GOLDEN_LIFETIME = 800;          // ms, 아주 짧음 — 놓치면 그대로 증발
+export const GOLDEN_POINT_MULTIPLIER = 10;   // 기본 수확 포인트 대비 배율
+
+// 사운드 / 진동 / 긴장 연출
+export const SOUND_MUTE_KEY = 'sunflowerQuest.muted'; // 음소거 설정 저장 키
+export const HEARTBEAT_DANGER_THRESHOLD = 50; // 위험도가 이 값 이상이면 심장박동 + 붉은 비네트 시작
+export const HEARTBEAT_BPM = 100;             // 심장박동 사운드/비네트 맥동 속도
+export const COMBO_PITCH_STEP = 0.03;         // 수확음 음정: 콤보 1회당 상승 배율 (semitone 근사)
+export const COMBO_PITCH_MAX = 2.0;           // 수확음 음정 상한 (기본 주파수 대비 배수)
+export const VIBRATE_HARVEST_MS = 15;         // 수확 시 짧은 햅틱
+export const VIBRATE_MISS_PATTERN = [60, 40, 60];   // 실수 시 묵직한 이중 진동
+export const VIBRATE_GAMEOVER_PATTERN = [200, 80, 200, 80, 400]; // 게임오버

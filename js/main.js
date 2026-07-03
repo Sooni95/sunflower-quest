@@ -31,6 +31,9 @@ import {
   POWERUP_SPAWN_CHANCE,
   POWERUP_BUFF_DURATION,
   POWERUP_HIT_PADDING,
+  GOLDEN_SPAWN_CHANCE,
+  GOLDEN_POINT_MULTIPLIER,
+  HEARTBEAT_DANGER_THRESHOLD,
 } from './config.js';
 import {
   state,
@@ -58,7 +61,19 @@ import {
   getEffectiveSpawnInterval,
   resetDanger,
 } from './state.js';
-import { createEntity, createPowerupEntity, isExpired, isFlipReady, applyFlip } from './entities.js';
+import { createEntity, createPowerupEntity, createGoldenEntity, isExpired, isFlipReady, applyFlip } from './entities.js';
+import {
+  playHarvest,
+  playMiss,
+  playEvolve,
+  playPowerup,
+  playGolden,
+  playGameOver,
+  startHeartbeat,
+  stopHeartbeat,
+  isMuted,
+  toggleMuted,
+} from './audio.js';
 import { tryEvolve, applyChoice } from './evolution.js';
 import { onTap } from './input.js';
 import {
@@ -91,6 +106,8 @@ import {
   updateDangerOverlay,
   setFieldBuffed,
   showDangerWarning,
+  setDangerVignette,
+  initSoundToggle,
 } from './ui.js';
 
 const liveEntities = new Map(); // id -> { entity, el }
@@ -107,6 +124,7 @@ function refreshHUD() {
   updateCombo(state.combo.streak, state.combo.multiplier);
   updateDangerOverlay(state.danger, MAX_DANGER_DARKEN_OPACITY);
   maybeWarnDanger();
+  syncHeartbeat();
 }
 
 function maybeWarnDanger() {
@@ -116,6 +134,14 @@ function maybeWarnDanger() {
   } else if (state.danger < DANGER_WARNING_THRESHOLD) {
     dangerWarningShown = false;
   }
+}
+
+// 위험도 임계 초과 시 심장박동 사운드 + 붉은 비네트를 함께 켜고 끈다.
+function syncHeartbeat() {
+  const critical = phase === 'field' && state.danger >= HEARTBEAT_DANGER_THRESHOLD;
+  setDangerVignette(critical);
+  if (critical) startHeartbeat();
+  else stopHeartbeat();
 }
 
 function restartAutoHarvest() {
@@ -143,6 +169,7 @@ function handleEvolutionCheck() {
       evolutionInProgress = true;
       clearTimeout(spawnTimer);
       refreshHUD();
+      playEvolve();
       showEvolutionToast(newStage.nameKey, `evo.comment.stage${newStage.id}`);
       showEvolutionChoiceModal(newStage, choices, (choiceId) => {
         applyChoice(state.stageIndex, choiceId);
@@ -154,6 +181,7 @@ function handleEvolutionCheck() {
       });
     },
     onAutoAdvance: (newStage) => {
+      playEvolve();
       showEvolutionToast(newStage.nameKey, `evo.comment.stage${newStage.id}`);
       refreshHUD();
       restartAutoHarvest();
@@ -180,11 +208,14 @@ function handleFieldTap(id) {
   const { entity, el } = record;
   liveEntities.delete(id);
 
-  if (entity.type === 'sunflower') {
-    const gained = addHarvestPoints();
+  if (entity.type === 'sunflower' || entity.type === 'golden') {
+    const isGolden = entity.type === 'golden';
+    const gained = addHarvestPoints(isGolden ? GOLDEN_POINT_MULTIPLIER : 1);
     playHarvestFeedback(el);
     showFloatingText(entity.x, entity.y, `+${gained}`, 'gain');
     setTimeout(() => removeEntityEl(el), HARVEST_REMOVE_DELAY);
+    if (isGolden) playGolden();
+    else playHarvest(state.combo.streak);
     refreshHUD();
 
     const monologueThreshold = getNewMonologueThreshold();
@@ -197,12 +228,14 @@ function handleFieldTap(id) {
     removeEntityEl(el);
     applyPowerupRelief();
     activatePowerupBuff();
+    playPowerup();
     refreshHUD();
   } else {
     const lost = applyWitherPenalty();
     showFloatingText(entity.x, entity.y, `-${lost}`, 'loss');
     triggerWitherFeedback();
     removeEntityEl(el);
+    playMiss();
     refreshHUD();
 
     if (isGameOver()) triggerGameOver();
@@ -219,6 +252,9 @@ function triggerGameOver() {
   phase = 'ended';
   clearTimeout(spawnTimer);
   clearLiveEntities();
+  stopHeartbeat();
+  setDangerVignette(false);
+  playGameOver();
   showDangerWarning(t('ending.gameover.toast'));
   setEndingType('gameover');
   setTimeout(showEnding, BOSS_DEFEAT_TO_ENDING_DELAY);
@@ -237,6 +273,7 @@ function handleBossTap(id) {
     playHarvestFeedback(el);
     showFloatingText(entity.x, entity.y, `-${dealt}`, 'gain');
     setTimeout(() => removeEntityEl(el), HARVEST_REMOVE_DELAY);
+    playHarvest(0);
     updateBossHUD(boss.hp, BOSS_MAX_HP);
     if (boss.defeated) finishBossFight();
   } else {
@@ -245,12 +282,21 @@ function handleBossTap(id) {
     showFloatingText(entity.x, entity.y, `+${healed}`, 'loss');
     triggerWitherFeedback();
     removeEntityEl(el);
+    playMiss();
     updateBossHUD(boss.hp, BOSS_MAX_HP);
   }
 }
 
-function hasLivePowerup() {
-  return [...liveEntities.values()].some((r) => r.entity.type === 'powerup');
+function hasLiveType(type) {
+  return [...liveEntities.values()].some((r) => r.entity.type === type);
+}
+
+function spawnSpecial(factory, width, height) {
+  const special = factory(width, height, lastSpawnPos);
+  lastSpawnPos = { x: special.x, y: special.y };
+  const el = renderEntity(special);
+  onTap(el, () => handleEntityTap(special.id));
+  liveEntities.set(special.id, { entity: special, el });
 }
 
 function trySpawn() {
@@ -260,12 +306,13 @@ function trySpawn() {
 
   const { width, height } = getFieldSize();
 
-  if (phase === 'field' && !hasLivePowerup() && Math.random() < POWERUP_SPAWN_CHANCE) {
-    const powerup = createPowerupEntity(width, height, lastSpawnPos);
-    lastSpawnPos = { x: powerup.x, y: powerup.y };
-    const el = renderEntity(powerup);
-    onTap(el, () => handleEntityTap(powerup.id));
-    liveEntities.set(powerup.id, { entity: powerup, el });
+  if (phase === 'field' && !hasLiveType('powerup') && Math.random() < POWERUP_SPAWN_CHANCE) {
+    spawnSpecial(createPowerupEntity, width, height);
+    return;
+  }
+
+  if (phase === 'field' && !hasLiveType('golden') && Math.random() < GOLDEN_SPAWN_CHANCE) {
+    spawnSpecial(createGoldenEntity, width, height);
     return;
   }
 
@@ -307,6 +354,8 @@ function enterBossOrDialogue() {
   clearTimeout(powerupBuffTimer);
   setFieldBuffed(false, 0);
   updateDangerOverlay(0, MAX_DANGER_DARKEN_OPACITY);
+  stopHeartbeat();
+  setDangerVignette(false);
 
   if (isSunBranch()) {
     phase = 'dialogue';
@@ -517,6 +566,7 @@ function init() {
   startDangerDecayTicker();
   maybeShowFinalStageButton();
   initLangToggle(cycleLang);
+  initSoundToggle(isMuted(), toggleMuted);
 
   if (isFirstVisit) {
     showStartScreen(detected, (lang) => {

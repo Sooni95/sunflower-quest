@@ -8,6 +8,7 @@ import {
   FAKE_PATTERN_REVEAL_FLOWER_MIN_STAGE_ID,
   FAKE_PATTERN_CHANCE,
   POWERUP_LIFETIME,
+  GOLDEN_LIFETIME,
 } from './config.js';
 
 let nextId = 1;
@@ -83,6 +84,20 @@ export function createPowerupEntity(fieldWidth, fieldHeight, lastPos) {
     y: position.y,
     spawnedAt: performance.now(),
     lifetime: POWERUP_LIFETIME,
+    flipAt: null,
+  };
+}
+
+// 황금 해바라기: 초단명 고득점. 페이크 패턴 없음.
+export function createGoldenEntity(fieldWidth, fieldHeight, lastPos) {
+  const position = pickPosition(fieldWidth, fieldHeight, lastPos);
+  return {
+    id: nextId++,
+    type: 'golden',
+    x: position.x,
+    y: position.y,
+    spawnedAt: performance.now(),
+    lifetime: GOLDEN_LIFETIME,
     flipAt: null,
   };
 }

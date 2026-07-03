@@ -13,6 +13,7 @@ const ENTITY_EMOJI = {
   sunflower: '🌻',
   withered: '🥀',
   powerup: '⭐',
+  golden: '🌻', // 같은 글리프에 골드 글로우 CSS로 차별화
 };
 
 let pointsEl;
@@ -76,6 +77,20 @@ export function updateEntityVisual(el, type) {
 export function updateDangerOverlay(dangerPercent, maxDarkenOpacity) {
   const opacity = (dangerPercent / 100) * maxDarkenOpacity;
   dangerEl.style.background = `rgba(10, 5, 15, ${opacity})`;
+}
+
+// 위험도 임계 초과 시 심장박동에 맞춘 붉은 비네트 맥동 on/off
+export function setDangerVignette(active) {
+  gameRootEl.classList.toggle('danger-critical', active);
+}
+
+export function initSoundToggle(initialMuted, onToggle) {
+  const btn = document.getElementById('hud-sound-btn');
+  btn.textContent = initialMuted ? '🔇' : '🔊';
+  onTap(btn, () => {
+    const nowMuted = onToggle();
+    btn.textContent = nowMuted ? '🔇' : '🔊';
+  });
 }
 
 // 파워업 버프 on/off. hitPaddingPx는 버프 중 탭 판정 영역 확장폭.

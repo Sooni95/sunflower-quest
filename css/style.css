@@ -36,7 +36,8 @@ html, body {
   color: #FF8F00;
 }
 
-#hud-lang-btn {
+#hud-lang-btn,
+#hud-sound-btn {
   font: inherit;
   font-size: 1.2rem;
   line-height: 1;
@@ -83,6 +84,39 @@ html, body {
 @keyframes powerup-pulse {
   from { filter: drop-shadow(0 0 4px rgba(255, 235, 59, 0.6)); }
   to { filter: drop-shadow(0 0 14px rgba(255, 235, 59, 1)); }
+}
+
+/* 황금 해바라기: 강렬한 골드 글로우 + 다급한 맥동 (수명이 짧다는 신호) */
+.entity.golden {
+  font-size: 3.1rem;
+  animation: pop-in 0.1s ease-out, golden-pulse 0.2s ease-in-out infinite alternate;
+}
+
+@keyframes golden-pulse {
+  from {
+    filter: drop-shadow(0 0 6px rgba(255, 193, 7, 0.9)) drop-shadow(0 0 16px rgba(255, 152, 0, 0.7)) brightness(1.25);
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    filter: drop-shadow(0 0 14px rgba(255, 193, 7, 1)) drop-shadow(0 0 30px rgba(255, 152, 0, 0.9)) brightness(1.5);
+    transform: translate(-50%, -50%) scale(1.12);
+  }
+}
+
+/* 위험도 임계 초과: 심장박동에 맞춘 붉은 비네트 맥동 */
+#game-root.danger-critical::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  box-shadow: inset 0 0 80px 30px rgba(180, 20, 20, 0.55);
+  animation: vignette-pulse 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes vignette-pulse {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
 }
 
 @keyframes pop-in {

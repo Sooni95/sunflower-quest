@@ -86,9 +86,10 @@ export function getAutoHarvestInterval() {
   return null;
 }
 
-export function addHarvestPoints() {
+// extraMultiplier: 황금 해바라기 등 특수 개체의 추가 배율 (기본 1)
+export function addHarvestPoints(extraMultiplier = 1) {
   const bonus = state.upgrades.harvestBonus ? HARVEST_BONUS_MULTIPLIER : 1;
-  const gained = Math.round(currentStage().basePoints * bonus * state.combo.multiplier);
+  const gained = Math.round(currentStage().basePoints * bonus * state.combo.multiplier * extraMultiplier);
   state.points += gained;
   state.harvestCount += 1;
 
