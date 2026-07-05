@@ -6,12 +6,12 @@ export const STAGES = [
   {
     id: 1,
     nameKey: 'stage.1.name',
-    spawnInterval: 800,      // ms (1300 → 800)
-    maxConcurrent: 4,
+    spawnInterval: 550,      // ms (1300 → 800 → 550, 인트로가 루즈하다는 피드백으로 추가 단축)
+    maxConcurrent: 5,        // 4 → 5
     lifetime: 2500,          // ms
     witheredRatio: 0.10,
     basePoints: 1,
-    pointsToNext: 30,        // 1단계는 빠른 인트로 유지
+    pointsToNext: 18,        // 30 → 18, 첫 진화까지 체감 시간 단축
   },
   {
     id: 2,
